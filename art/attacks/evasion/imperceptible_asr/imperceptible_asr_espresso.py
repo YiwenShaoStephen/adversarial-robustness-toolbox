@@ -245,7 +245,7 @@ class ImperceptibleASRPytorch(EvasionAttack):
         adv_x = x.copy()
 
         # Put the estimator in the training mode
-        self.estimator.model.train()
+        #self.estimator.model.train()
 
         # Compute perturbation with batching
         num_batch = int(np.ceil(len(x) / float(self.batch_size)))
@@ -442,6 +442,12 @@ class ImperceptibleASRPytorch(EvasionAttack):
         """
         import torch  # lgtm [py/repeated-import]
 
+        def get_symbols_to_strip_from_output(generator):
+            if hasattr(generator, "symbols_to_strip_from_output"):
+                return generator.symbols_to_strip_from_output
+            else:
+                return {generator.eos, generator.pad}
+
         # Compute perturbed inputs
         local_delta = self.global_optimal_delta[:local_batch_size, :local_max_length]
         local_delta_rescale = torch.clamp(local_delta, -self.initial_eps, self.initial_eps).to(self.estimator.device)
@@ -450,13 +456,6 @@ class ImperceptibleASRPytorch(EvasionAttack):
         masked_adv_input = adv_input * torch.tensor(input_mask).to(self.estimator.device)
 
         # Transform data into the model input space
-        inputs, targets, input_rates, target_sizes, batch_idx = self.estimator.transform_model_input(
-            x=masked_adv_input.to(self.estimator.device),
-            y=original_output,
-            compute_gradient=False,
-            tensor_input=True,
-            real
-        )
         batch, batch_idx = self.estimator.transform_model_input(
             x=masked_adv_input.to(self.estimator.device),
             y=original_output,
@@ -468,6 +467,7 @@ class ImperceptibleASRPytorch(EvasionAttack):
         hypos = self.estimator.task.inference_step(
                 self.estimator.generator, self.estimator._models, batch)
 
+        decoded_output = []
         for i in range(len(hypos)):
             # Process top predictions
             for j, hypo in enumerate(hypos[i][:self.estimator.esp_args.nbest]):
@@ -638,15 +638,20 @@ class ImperceptibleASRPytorch(EvasionAttack):
 
         # First compute the psd matrix
         # These parameters are needed for the transformation
-        sample_rate = self.estimator.model.audio_conf.sample_rate
-        window_size = self.estimator.model.audio_conf.window_size
-        window_stride = self.estimator.model.audio_conf.window_stride
+        # sample_rate = self.estimator.model.audio_conf.sample_rate
+        # window_size = self.estimator.model.audio_conf.window_size
+        # window_stride = self.estimator.model.audio_conf.window_stride
 
-        n_fft = int(sample_rate * window_size)
-        hop_length = int(sample_rate * window_stride)
-        win_length = n_fft
+        # n_fft = int(sample_rate * window_size)
+        # hop_length = int(sample_rate * window_stride)
+        # win_length = n_fft
 
-        window = self.estimator.model.audio_conf.window.value
+        # window = self.estimator.model.audio_conf.window.value
+        sample_rate = 16000
+        window = "hann"
+        win_length = 2048
+        hop_length = 512
+        n_fft = win_length
 
         if window == "hamming":
             window_fn = scipy.signal.windows.hamming
@@ -763,15 +768,21 @@ class ImperceptibleASRPytorch(EvasionAttack):
         import torchaudio
 
         # These parameters are needed for the transformation
-        sample_rate = self.estimator.model.audio_conf.sample_rate
-        window_size = self.estimator.model.audio_conf.window_size
-        window_stride = self.estimator.model.audio_conf.window_stride
+        # sample_rate = self.estimator.model.audio_conf.sample_rate
+        # window_size = self.estimator.model.audio_conf.window_size
+        # window_stride = self.estimator.model.audio_conf.window_stride
 
-        n_fft = int(sample_rate * window_size)
-        hop_length = int(sample_rate * window_stride)
-        win_length = n_fft
+        # n_fft = int(sample_rate * window_size)
+        # hop_length = int(sample_rate * window_stride)
+        # win_length = n_fft
 
-        window = self.estimator.model.audio_conf.window.value
+        # window = self.estimator.model.audio_conf.window.value
+
+        sample_rate = 16000
+        window = "hann"
+        win_length = 2048
+        hop_length = 512
+        n_fft = win_length
 
         if window == "hamming":
             window_fn = torch.hamming_window
